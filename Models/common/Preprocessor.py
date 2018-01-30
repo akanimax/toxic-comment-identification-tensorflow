@@ -2,11 +2,13 @@
     into numpy arrays
 """
 import numpy as np
+import os
 import pandas as pd
 import tensorflow as tf
 
 from GeneralConfiguration import generalConf
 from matplotlib import pyplot as plt
+from Pickler import pickle_it
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -20,6 +22,8 @@ def main(_):
     test_file = generalConf.TEST_DATA
 
     # load the csv as data frames
+    print("Data_Paths: ", train_file, test_file)
+    print("Reading the data from the csv_files ...")
     train_dataframe = pd.read_csv(train_file)
     test_dataframe = pd.read_csv(test_file)
 
@@ -33,6 +37,7 @@ def main(_):
                       dtype=np.float32)
 
     # convert the train_text and test_text into coded sequences
+    print("displaying the sentences' word lengths...")
     if FLAGS.show_stats:
         word_lengths = list(map(len, map(lambda x: x.split(), train_text)))
         plt.figure().suptitle("Word Length v/s sent number")
@@ -46,11 +51,29 @@ def main(_):
     processor = tf.contrib.learn.preprocessing.VocabularyProcessor(generalConf.MAX_WORD_LENGTH)
 
     # fit the vocabulary on the
-    processor.fit(train_text)
+    print("Generating the vocabulary for the data ...")
+    processor.fit(train_text + test_text)
+    print("Encoding the training data ...")
     encoded_train_text = np.array(list(map(list, processor.transform(train_text))), dtype=np.int32)
+    print("Encoding the test data ...")
+    encoded_test_text = np.array(list(map(list, processor.transform(test_text))), dtype=np.int32)
 
-    print(encoded_train_text.shape, encoded_train_text[:30])
-    # print(max(map(len, encoded_train_text)))
+    # pickle the processed data
+    data_obj = {
+        "train_data": encoded_train_text,
+        "train_labels": labels,
+        "test_data": encoded_test_text,
+        "vocabulary_processor": processor
+    }
+
+    # define the path for saving the preprocessed data
+    save_path = os.path.join(generalConf.DATA_PATH, "plug_and_play.pickle")
+
+    # pickle the file
+    print("Saving the processed data ...")
+    pickle_it(data_obj, save_path)
+
+    print("Preprocessing complete ...")
 
 
 if __name__ == '__main__':
