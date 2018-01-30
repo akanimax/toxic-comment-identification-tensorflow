@@ -1,13 +1,13 @@
 """ The preprocessor script for extracting the data from the csv files and loading it up
     into numpy arrays
 """
-import numpy as np
 import os
-import pandas as pd
+import numpy as np
 import tensorflow as tf
 
-from GeneralConfiguration import generalConf
 from matplotlib import pyplot as plt
+from CSVReader import read_csv_files
+from GeneralConfiguration import generalConf
 from Pickler import pickle_it
 
 flags = tf.app.flags
@@ -17,31 +17,18 @@ FLAGS = flags.FLAGS
 def main(_):
     print("Preprocessing the data . . .")
 
-    # bring the files for processing
-    train_file = generalConf.TRAIN_DATA
-    test_file = generalConf.TEST_DATA
-
-    # load the csv as data frames
-    print("Data_Paths: ", train_file, test_file)
-    print("Reading the data from the csv_files ...")
-    train_dataframe = pd.read_csv(train_file)
-    test_dataframe = pd.read_csv(test_file)
-
-    # carve out the text from the dataframe
-    train_text = list(train_dataframe["comment_text"])
-    test_text = list(test_dataframe["comment_text"])
-
-    # obtain all the labels from the train_dataframe
-    labels = np.array(train_dataframe[
-                          ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]],
-                      dtype=np.float32)
+    train_text, test_text, labels = read_csv_files()
 
     # convert the train_text and test_text into coded sequences
     print("displaying the sentences' word lengths...")
     if FLAGS.show_stats:
-        word_lengths = list(map(len, map(lambda x: x.split(), train_text)))
+        word_lengths_train = list(map(len, map(lambda x: x.split(), train_text)))
         plt.figure().suptitle("Word Length v/s sent number")
-        plt.plot(word_lengths)
+        plt.plot(word_lengths_train)
+        plt.show()
+        word_lengths_test = list(map(len, map(lambda x: x.split(), test_text)))
+        plt.figure().suptitle("Word Length v/s sent number")
+        plt.plot(word_lengths_test)
         plt.show()
 
     # From the above figure (saved in common/visualizations) it can be observed that
@@ -53,6 +40,11 @@ def main(_):
     # fit the vocabulary on the
     print("Generating the vocabulary for the data ...")
     processor.fit(train_text + test_text)
+
+    # Trim the vocabulary to minimum and maximum frequencies.
+    processor.vocabulary_.trim(min_frequency = generalConf.MIN_WORD_FREQ,
+                               max_frequency=generalConf.MAX_WORD_FREQ)
+
     print("Encoding the training data ...")
     encoded_train_text = np.array(list(map(list, processor.transform(train_text))), dtype=np.int32)
     print("Encoding the test data ...")
