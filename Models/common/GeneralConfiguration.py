@@ -15,7 +15,9 @@ generalConf.SAMPLE_SUBMISSION = os.path.join(generalConf.DATA_PATH, "sample_subm
 generalConf.MAX_WORD_LENGTH = 800  # derived from the common/visualizations/word_lengths_train.png plot
 generalConf.MIN_WORD_FREQ = 40
 generalConf.MAX_WORD_FREQ = 40000 # The above two values have been derived
+generalConf.NUM_CLASSES = 6
 # from the word_frequencies.png visualization
+
 
 if __name__ == '__main__':
     print("Loading the General Configuration ...")
