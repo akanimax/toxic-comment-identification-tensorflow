@@ -15,7 +15,7 @@ class TestGraphCreator(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.seq_length, cls.num_classes = generalConf.MAX_WORD_LENGTH, generalConf.NUM_CLASSES
-        cls.graph = create_graph(cls.seq_length, cls.num_classes, vocab_size, emb_size)
+        cls.graph = create_graph(cls.seq_length, cls.num_classes, vocab_size, emb_size, 3)
 
     def test_one_hot_encoding(self):
         # test the one_hot encoded version
@@ -50,3 +50,26 @@ class TestGraphCreator(unittest.TestCase):
 
         # check the tensor shape of the output (for odd number it rounds down)
         self.assertEqual(output.shape.as_list(), [None, 12, 16])
+
+    def test_computation_graph(self):
+        # test the one_hot encoded version
+        comp_output = self.graph.get_tensor_by_name("last_conv_output:0")
+
+        # test if the one hot encoding shape is correct
+        self.assertEqual(comp_output.shape.as_list(), [None, 100, 128])
+        # values calculated manually
+
+    def test_classification_layers(self):
+        # test the one_hot encoded version
+        predictions = self.graph.get_tensor_by_name("Predictions/preds:0")
+
+        # test if the one hot encoding shape is correct
+        self.assertEqual(predictions.shape.as_list(), [None, self.num_classes])
+        # values calculated manually
+
+    def test_create_graph_visualization(self):
+        # this test creates the model visualization for the graph
+        tensorboard_dir = "../Trained_Models/Graph_Visualization/"
+        tf.summary.FileWriter(tensorboard_dir, graph=self.graph, filename_suffix=".bot")
+
+        self.assertEqual(1, 1, "This must be always equal")

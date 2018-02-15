@@ -4,6 +4,8 @@
 
 import tensorflow as tf
 
+from ModelConfiguration import modelConf
+
 
 # =============================================================================================
 # helper methods for the graph creation
@@ -80,13 +82,15 @@ def pooling2x(inp):
     # return the output
     return y
 
+
 # =============================================================================================
 
 
 # =============================================================================================
 # The graph creator method
 # =============================================================================================
-def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_depth):
+def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_depth, max_depth=9,
+                 fc_layer_width=512, fc_layer_depth=1):
     """ Function for creating the Graph object that is going to be trained
 
     :return: computation graph object
@@ -105,12 +109,13 @@ def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_dep
 
             # placeholder for applying dropout to the final classifying layers
             dropout_keep_prob = tf.placeholder(tf.float32, shape=None, name="drop_out_keep_probability")
+            dropout_mode = tf.placeholder(tf.bool, shape=None, name="drop_out_mode")
 
             # placeholder for controlling the batch normalization
             batch_norm_mode = tf.placeholder(tf.bool, shape=None, name="batchNorm_mode")
 
         print("Defined Inputs to graph: ", input_x, input_y)
-        print("Input Training parameters: ", dropout_keep_prob, batch_norm_mode)
+        print("Input Training parameters: ", dropout_keep_prob, dropout_mode, batch_norm_mode)
 
         # define the one-hot encodings of the input labels
         with tf.name_scope("OneHot_Encoding"):
@@ -128,7 +133,62 @@ def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_dep
 
         # create the computational network
         # validate the network_depth
-        # // TODO create the computational graph using the helper methods
+        network_depth = max(0, network_depth)  # lower limit clipping
+        network_depth = min(max_depth, network_depth)  # upper limit clipping
+
+        # start the network pipeline
+        filter_size = modelConf.FILTER_SIZE
+        channel_width = embedded_x.shape.as_list()[-1]  # input channel width
+        x = embedded_x
+        for lay in range(network_depth):
+            # update the channel width
+            channel_width = 2 * channel_width
+            x = residual_block_with_parallel_conv((lay + 1), x, filter_size, channel_width, batch_norm_mode)
+            x = pooling2x(x)
+
+        x = tf.identity(x, "last_conv_output")
+
+        print("Final output from computational pipeline: ", x)
+
+        # define the final fully connected layers with the last one being for classification
+        y = tf.layers.flatten(x, name="flatten_output")  # start the dense layer computations
+        for fc_lay in range(fc_layer_depth):
+            lay_no = str(fc_lay + 1)
+            with tf.variable_scope("Dense_Dropout" + str(lay_no)):
+                # apply fully connected layer
+                y = tf.layers.dense(y, fc_layer_width, activation=tf.nn.relu,
+                                    name="Dense_Layer_" + lay_no)
+                # apply dropout
+                y = tf.layers.dropout(y, rate=dropout_keep_prob, training=dropout_mode,
+                                      name="Dropout" + lay_no)
+
+        # define the final classification fully connected layer
+        raw_preds = tf.layers.dense(y, num_classes, name="Raw_Predictions")
+
+        # define the softmax predictions
+        with tf.name_scope("Predictions"):
+            preds = tf.nn.softmax(raw_preds, axis=-1, name="preds")
+
+        print("Predictions obtained at the end: ", preds)
+
+        # define the classification loss
+        with tf.name_scope("Loss"):
+            # note that it is raw_preds that we pass here
+            loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=one_hot_y, logits=raw_preds, name="loss")
+
+            # add scalar summary for the loss
+            tf.summary.scalar("loss", loss)
+
+        # define the accuracy metric
+        with tf.name_scope("Accuracy"):
+            correct = tf.cast(tf.equal(tf.argmax(one_hot_y, axis=-1),
+                                       tf.argmax(preds, axis=-1)), tf.float32, name="correct_calculation")
+
+            total_examples = tf.cast(tf.shape(one_hot_y)[0], tf.float32)
+            accuracy = tf.div(tf.reduce_sum(correct), total_examples, name="accuracy")
+            # accuracy is in fraction (not %age)
+
+            tf.summary.scalar("accuracy", accuracy)
 
     print("===========================================================================================")
     print("Graph construction complete ...")

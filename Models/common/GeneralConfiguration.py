@@ -18,6 +18,8 @@ generalConf.MAX_WORD_FREQ = 40000 # The above two values have been derived
 generalConf.NUM_CLASSES = 6
 # from the word_frequencies.png visualization
 
+# Set the constant files
+generalConf.PICKLE_FILE = os.path.join(generalConf.DATA_PATH, "plug_and_play.pickle")
 
 if __name__ == '__main__':
     print("Loading the General Configuration ...")
