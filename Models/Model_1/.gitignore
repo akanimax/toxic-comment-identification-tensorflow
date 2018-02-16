@@ -1,2 +1,5 @@
 # ignore the .idea folder
 .idea
+
+# ignore the Trained Models folder
+Trained_Models/

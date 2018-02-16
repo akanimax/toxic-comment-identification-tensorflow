@@ -4,7 +4,7 @@
 
 import tensorflow as tf
 
-from ModelConfiguration import modelConf
+from Model_1.ResNet.ModelConfiguration import modelConf
 
 
 # =============================================================================================
@@ -105,7 +105,7 @@ def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_dep
         # define the placeholders for the computation graph
         with tf.name_scope("Inputs"):
             input_x = tf.placeholder(tf.int32, shape=(None, sequence_length), name="Input_sequences")
-            input_y = tf.placeholder(tf.int32, shape=(None,), name="Sequence_labels")
+            input_y = tf.placeholder(tf.float32, shape=(None, num_classes), name="Sequence_labels")
 
             # placeholder for applying dropout to the final classifying layers
             dropout_keep_prob = tf.placeholder(tf.float32, shape=None, name="drop_out_keep_probability")
@@ -116,13 +116,6 @@ def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_dep
 
         print("Defined Inputs to graph: ", input_x, input_y)
         print("Input Training parameters: ", dropout_keep_prob, dropout_mode, batch_norm_mode)
-
-        # define the one-hot encodings of the input labels
-        with tf.name_scope("OneHot_Encoding"):
-            one_hot_y = tf.one_hot(input_y, num_classes, name="one_hot_encoded_labels")
-
-        # print the one_hot_encoded labels
-        print("One-hot encoded labels: ", one_hot_y)
 
         # define the embedding layer
         with tf.variable_scope("Embedding"):
@@ -172,26 +165,28 @@ def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_dep
         # define the final classification fully connected layer
         raw_preds = tf.layers.dense(y, num_classes, name="Raw_Predictions")
 
-        # define the softmax predictions
+        # define the sigmoid predictions
         with tf.name_scope("Predictions"):
-            preds = tf.nn.softmax(raw_preds, axis=-1, name="preds")
+            preds = tf.nn.sigmoid(raw_preds, name="preds")
 
         print("Predictions obtained at the end: ", preds)
 
         # define the classification loss
         with tf.name_scope("Loss"):
             # note that it is raw_preds that we pass here
-            loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=one_hot_y, logits=raw_preds, name="loss")
+            loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=input_y,
+                                                           logits=raw_preds, name="loss")
 
             # add scalar summary for the loss
             tf.summary.scalar("loss", loss)
 
+        # TODO fix the accuracy calculation below
         # define the accuracy metric
         with tf.name_scope("Accuracy"):
-            correct = tf.cast(tf.equal(tf.argmax(one_hot_y, axis=-1),
-                                       tf.argmax(preds, axis=-1)), tf.float32, name="correct_calculation")
+            correct = tf.cast(tf.equal(tf.argmax(input_y, axis=-1), tf.argmax(preds, axis=-1)),
+                              tf.float32, name="correct_calculation")
 
-            total_examples = tf.cast(tf.shape(one_hot_y)[0], tf.float32)
+            total_examples = tf.cast(tf.shape(input_y)[0], tf.float32)
             accuracy = tf.div(tf.reduce_sum(correct), total_examples, name="accuracy")
             # accuracy is in fraction (not %age)
 

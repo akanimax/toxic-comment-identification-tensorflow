@@ -3,12 +3,17 @@
 
 import tensorflow as tf
 import os
+import timeit  # for calculating the computational time
+
+# for running the script on command-line terminal
+import sys
+sys.path.append("../")
 
 from common.GeneralConfiguration import generalConf
 from common.Pickler import unpickle_it
 from ResNet.GraphCreator import create_graph
 from common.DataPartitioner import *
-from ModelConfiguration import modelConf
+from Model_1.ResNet.ModelConfiguration import modelConf
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -41,9 +46,14 @@ def setup_data():
     return train_x, train_y, dev_x, dev_y, test_data, vocabulary_obj
 
 
-def train_network(network, optimizer, epochs, dropout_prob, batch_size, model_dir):
+def train_network(network, optimizer, epochs, train_x, train_y, dev_x, dev_y,
+                  dropout_prob, batch_size, model_dir):
     """
     The function for training the network.
+    :param dev_y: dev set data labels
+    :param dev_x: dev set data
+    :param train_y: train set data labels
+    :param train_x: train set data
     :param batch_size: The size of mini-batches for training the network
     :param dropout_prob: The dropout probability for the final dense layers
     :param epochs: Number of epochs to train for
@@ -54,6 +64,14 @@ def train_network(network, optimizer, epochs, dropout_prob, batch_size, model_di
     """
     # extract the required tensors from the network
     loss = network.get_tensor_by_name("Loss/loss:0")
+    accuracy = network.get_tensor_by_name("Accuracy/accuracy:0")
+
+    # input placeholder for computational feeding
+    input_x = network.get_tensor_by_name("Inputs/Input_sequences:0")
+    input_y = network.get_tensor_by_name("Inputs/Sequence_labels:0")
+    dropout_keep_prob = network.get_tensor_by_name("Inputs/drop_out_keep_probability:0")
+    dropout_mode = network.get_tensor_by_name("Inputs/drop_out_mode:0")
+    batch_norm_mode = network.get_tensor_by_name("Inputs/batchNorm_mode:0")
 
     # setup the training optimizer for the graph
     with network.as_default():
@@ -66,6 +84,7 @@ def train_network(network, optimizer, epochs, dropout_prob, batch_size, model_di
             init = tf.global_variables_initializer()
             all_sums = tf.summary.merge_all()
 
+    print("\nStarting the Network Training ...")
     # start the training Session
     with tf.Session(graph=network) as sess:
         # setup the tensorboard writer
@@ -85,7 +104,64 @@ def train_network(network, optimizer, epochs, dropout_prob, batch_size, model_di
 
         # start the training loop
         for epoch in range(epochs):
-            pass
+            # record the time
+            start_time = timeit.default_timer()
+
+            # loop over the mini_batches in the data
+            # run through the batches of the data:
+            total_train_examples = train_x.shape[0]
+            losses = []
+            accuracies = []
+            summaries = None
+            for batch in range(int((total_train_examples / batch_size) + 0.5)):
+                start = batch * batch_size
+                end = start + batch_size
+
+                # extract the relevant data:
+                batch_data_x = train_x[start: end]
+                batch_data_y = train_y[start: end]
+
+                # run the training step and calculate the loss and accuracy
+                _, cost, acc, summaries = sess.run([train_step, loss, accuracy, all_sums],
+                                                   feed_dict={
+                                                       input_x: batch_data_x,
+                                                       input_y: batch_data_y,
+                                                       dropout_keep_prob: dropout_prob,
+                                                       dropout_mode: True,
+                                                       batch_norm_mode: True
+                                                   })
+
+                # append the acc to the accuracies list
+                accuracies.append(acc)
+
+                # append the loss to the losses list
+                losses.append(loss)
+
+            stop_time = timeit.default_timer()
+
+            print("\nepoch = ", epoch + 1, "time taken = ", (stop_time - start_time))
+
+            # evaluate the accuracy of the whole dev dataset:
+            print("Average epoch accuracy = ", sum(accuracies) / len(accuracies))
+            print("Average epoch loss = ", sum(losses) / len(losses))
+            # evaluate the accuracy for the dev set
+
+            # calculate the dev set accuracy
+            dev_acc = sess.run(accuracy,
+                               feed_dict={
+                                   input_x: dev_x,
+                                   input_y: dev_y,
+                                   dropout_mode: False,
+                                   batch_norm_mode: False
+                               })
+            print("dev_accuracy = ", dev_acc)
+
+            # write the summaries to the file_system
+            tensorboard_writer.add_summary(summaries, epoch + 1)
+
+            # save the model after every epoch
+            saver.save(sess, os.path.join(model_dir, "Model"), global_step=(epoch + 10))
+    print("Training complete ...")
 
 
 def main(_):
@@ -119,6 +195,29 @@ def main(_):
 
     print("Computation graph generated: ", network_graph)
 
+    # generate the model name based on the configuration
+    model_name = ("Model-" + str(FLAGS.network_depth) + "-deep-" +
+                  str(FLAGS.fc_layer_width) + "-flw-" +
+                  str(FLAGS.fc_layer_depth) + "-fld-" +
+                  str(FLAGS.epochs) + "-epochs-" +
+                  str(FLAGS.learning_rate) + "-learning_rate-" +
+                  str(FLAGS.dropout_prob) + "-regularization_lambda-" +
+                  str(FLAGS.batch_size) + "-batch_size")
+
+    # model_save directory
+    model_save_dir = os.path.join("Trained_Models", model_name)
+
+    # call the training method
+    train_network(
+        network_graph,
+        tf.train.AdamOptimizer(),
+        FLAGS.epochs,
+        train_x, train_y, dev_x, dev_y,
+        FLAGS.dropout_prob,
+        FLAGS.batch_size,
+        model_save_dir
+    )
+
 
 if __name__ == '__main__':
     # define the command-line arguments for the script
@@ -127,6 +226,9 @@ if __name__ == '__main__':
     flags.DEFINE_integer("network_depth", 0, help="The Depth of the Network (No. of residual blocks)")
     flags.DEFINE_integer("fc_layer_width", 512, help="The width of the final dense layers")
     flags.DEFINE_integer("fc_layer_depth", 1, help="The number of dense layer in the end")
+    flags.DEFINE_float("learning_rate", 3e-4, help="Learning rate for training")
+    flags.DEFINE_float("dropout_prob", 0.5, help="Dropout probability for the final dense layers")
+    flags.DEFINE_integer("batch_size", 128, help="Batch size for sgd")
 
     # call the main function
     tf.app.run(main)

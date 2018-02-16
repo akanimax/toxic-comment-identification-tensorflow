@@ -5,13 +5,13 @@ import pickle  # for pickling the data
 import os  # for path related operations
 
 
-# Simple function to perform pickling of the given object. This fucntion may fail if the size of the object exceeds
-# the max size of the pickling protocol used. Although this is highly rare, One might then have to resort to some other
+# Simple function to perform pickling of the given object. This function may fail if the size of the object
+# exceeds
+# the max size of the pickling protocol used. Although this is highly rare, One might then have
+# to resort to some other
 # strategy to pickle the data.
 # The second function available is to unpickle a file located at the specified path
 
-
-# coded by botman
 
 # function to pickle an object
 def pickle_it(obj, save_path):
