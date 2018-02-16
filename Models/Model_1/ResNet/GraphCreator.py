@@ -90,7 +90,7 @@ def pooling2x(inp):
 # The graph creator method
 # =============================================================================================
 def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_depth, max_depth=9,
-                 fc_layer_width=512, fc_layer_depth=1):
+                 fc_layer_width=512, fc_layer_depth=3):
     """ Function for creating the Graph object that is going to be trained
 
     :return: computation graph object
@@ -148,7 +148,14 @@ def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_dep
 
         x = tf.identity(x, "last_conv_output")
 
-        print("Final output from computational pipeline: ", x)
+        print("Final output from convolutional pipeline: ", x)
+
+        # validate the fc_layer_depth
+        fc_layer_depth = max(0, fc_layer_depth)
+
+        # validate the fc_layer_width
+        fc_layer_width = max(1, fc_layer_width)
+        # width cannot be zero or -ve
 
         # define the final fully connected layers with the last one being for classification
         y = tf.layers.flatten(x, name="flatten_output")  # start the dense layer computations
