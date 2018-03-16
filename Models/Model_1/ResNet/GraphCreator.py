@@ -180,14 +180,12 @@ def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_dep
             # add scalar summary for the loss
             tf.summary.scalar("loss", loss)
 
-        # TODO fix the accuracy calculation below
         # define the accuracy metric
         with tf.name_scope("Accuracy"):
-            correct = tf.cast(tf.equal(tf.argmax(input_y, axis=-1), tf.argmax(preds, axis=-1)),
-                              tf.float32, name="correct_calculation")
+            correct = tf.equal(input_y, tf.round(preds, name="round_probabilities"))
+            all_labs_true = tf.reduce_min(tf.cast(correct, tf.float32, name="correct_calculation"), axis=-1)
 
-            total_examples = tf.cast(tf.shape(input_y)[0], tf.float32)
-            accuracy = tf.div(tf.reduce_sum(correct), total_examples, name="accuracy")
+            accuracy = tf.reduce_mean(all_labs_true, name="accuracy")
             # accuracy is in fraction (not %age)
 
             tf.summary.scalar("accuracy", accuracy)
