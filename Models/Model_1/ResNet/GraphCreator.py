@@ -174,8 +174,9 @@ def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_dep
         # define the classification loss
         with tf.name_scope("Loss"):
             # note that it is raw_preds that we pass here
-            loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=input_y,
-                                                           logits=raw_preds, name="loss")
+            loss = tf.reduce_sum(
+                tf.nn.sigmoid_cross_entropy_with_logits(labels=input_y,
+                                                        logits=raw_preds), name="loss")
 
             # add scalar summary for the loss
             tf.summary.scalar("loss", loss)
