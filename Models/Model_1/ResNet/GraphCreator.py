@@ -162,6 +162,13 @@ def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_dep
                 y = tf.layers.dropout(y, rate=dropout_keep_prob, training=dropout_mode,
                                       name="Dropout" + lay_no)
 
+            # add summaries for the dense layers
+            with tf.variable_scope("Dense_Dropout" + str(lay_no), reuse=True):
+                # add the histogram summary for the dense layers
+                tensor_name = "Dense_Layer_" + lay_no
+                tf.summary.histogram(tensor_name + "/kernel", tf.get_variable(tensor_name + "/kernel"))
+                tf.summary.histogram(tensor_name + "/bias", tf.get_variable(tensor_name + "/bias"))
+
         # define the final classification fully connected layer
         raw_preds = tf.layers.dense(y, num_classes, name="Raw_Predictions")
 
@@ -174,23 +181,28 @@ def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_dep
         # define the classification loss
         with tf.name_scope("Loss"):
             # note that it is raw_preds that we pass here
-            loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=input_y,
-                                                           logits=raw_preds, name="loss")
+            loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=input_y,
+                                                                          logits=raw_preds),
+                                  name="loss")
 
             # add scalar summary for the loss
             tf.summary.scalar("loss", loss)
 
-        # TODO fix the accuracy calculation below
         # define the accuracy metric
         with tf.name_scope("Accuracy"):
-            correct = tf.cast(tf.equal(tf.argmax(input_y, axis=-1), tf.argmax(preds, axis=-1)),
+            correct = tf.cast(tf.equal(input_y, tf.round(preds)),
                               tf.float32, name="correct_calculation")
 
-            total_examples = tf.cast(tf.shape(input_y)[0], tf.float32)
-            accuracy = tf.div(tf.reduce_sum(correct), total_examples, name="accuracy")
-            # accuracy is in fraction (not %age)
+            # %age of all correct labels
+            label_accuracy = tf.reduce_mean(correct, name="label_accuracy")
 
-            tf.summary.scalar("accuracy", accuracy)
+            # %age of images with all correct labels
+            inp_correct = tf.reduce_min(correct, axis=-1)
+            inp_accuracy = tf.reduce_mean(inp_correct, name="input_accuracy")
+
+            # accuracy is in fraction (not %age)
+            tf.summary.scalar("input_accuracy_summary", inp_accuracy)
+            tf.summary.scalar("label_accuracy_summary", label_accuracy)
 
     print("===========================================================================================")
     print("Graph construction complete ...")

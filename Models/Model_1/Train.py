@@ -7,6 +7,7 @@ import timeit  # for calculating the computational time
 
 # for running the script on command-line terminal
 import sys
+
 sys.path.append("../")
 
 from common.GeneralConfiguration import generalConf
@@ -64,7 +65,8 @@ def train_network(network, optimizer, epochs, train_x, train_y, dev_x, dev_y,
     """
     # extract the required tensors from the network
     loss = network.get_tensor_by_name("Loss/loss:0")
-    accuracy = network.get_tensor_by_name("Accuracy/accuracy:0")
+    lab_accuracy = network.get_tensor_by_name("Accuracy/label_accuracy:0")
+    inp_accuracy = network.get_tensor_by_name("Accuracy/input_accuracy:0")
 
     # input placeholder for computational feeding
     input_x = network.get_tensor_by_name("Inputs/Input_sequences:0")
@@ -111,7 +113,8 @@ def train_network(network, optimizer, epochs, train_x, train_y, dev_x, dev_y,
             # run through the batches of the data:
             total_train_examples = train_x.shape[0]
             losses = []
-            accuracies = []
+            lab_accuracies = []
+            inp_accuracies = []
             summaries = None
             for batch in range(int((total_train_examples / batch_size) + 0.5)):
                 start = batch * batch_size
@@ -122,39 +125,44 @@ def train_network(network, optimizer, epochs, train_x, train_y, dev_x, dev_y,
                 batch_data_y = train_y[start: end]
 
                 # run the training step and calculate the loss and accuracy
-                _, cost, acc, summaries = sess.run([train_step, loss, accuracy, all_sums],
-                                                   feed_dict={
-                                                       input_x: batch_data_x,
-                                                       input_y: batch_data_y,
-                                                       dropout_keep_prob: dropout_prob,
-                                                       dropout_mode: True,
-                                                       batch_norm_mode: True
-                                                   })
+                _, cost, i_acc, l_acc, summaries = sess.run([train_step, loss, inp_accuracy,
+                                                             lab_accuracy, all_sums],
+                                                            feed_dict={
+                                                                input_x: batch_data_x,
+                                                                input_y: batch_data_y,
+                                                                dropout_keep_prob: dropout_prob,
+                                                                dropout_mode: True,
+                                                                batch_norm_mode: True
+                                                            })
 
                 # append the acc to the accuracies list
-                accuracies.append(acc)
+                inp_accuracies.append(i_acc)
+                lab_accuracies.append(l_acc)
 
                 # append the loss to the losses list
-                losses.append(loss)
+                losses.append(cost)
 
             stop_time = timeit.default_timer()
 
             print("\nepoch = ", epoch + 1, "time taken = ", (stop_time - start_time))
 
             # evaluate the accuracy of the whole dev dataset:
-            print("Average epoch accuracy = ", sum(accuracies) / len(accuracies))
+            print("Average epoch label accuracy = ", sum(lab_accuracies) / len(lab_accuracies))
+            print("Average epoch input accuracy = ", sum(inp_accuracies) / len(inp_accuracies))
             print("Average epoch loss = ", sum(losses) / len(losses))
             # evaluate the accuracy for the dev set
 
             # calculate the dev set accuracy
-            dev_acc = sess.run(accuracy,
-                               feed_dict={
-                                   input_x: dev_x,
-                                   input_y: dev_y,
-                                   dropout_mode: False,
-                                   batch_norm_mode: False
-                               })
-            print("dev_accuracy = ", dev_acc)
+            dev_i_acc, dev_l_acc = sess.run([inp_accuracy, lab_accuracy],
+                                            feed_dict={
+                                                input_x: dev_x,
+                                                input_y: dev_y,
+                                                dropout_mode: False,
+                                                dropout_keep_prob: dropout_prob,
+                                                batch_norm_mode: False
+                                            })
+            print("dev_input_accuracy = ", dev_i_acc)
+            print("dev_label_accuracy = ", dev_l_acc)
 
             # write the summaries to the file_system
             tensorboard_writer.add_summary(summaries, epoch + 1)
