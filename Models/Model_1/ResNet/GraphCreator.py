@@ -181,28 +181,22 @@ def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_dep
         # define the classification loss
         with tf.name_scope("Loss"):
             # note that it is raw_preds that we pass here
-            loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=input_y,
-                                                                          logits=raw_preds),
-                                  name="loss")
+            loss = tf.reduce_sum(
+                tf.nn.sigmoid_cross_entropy_with_logits(labels=input_y,
+                                                        logits=raw_preds), name="loss")
 
             # add scalar summary for the loss
             tf.summary.scalar("loss", loss)
 
         # define the accuracy metric
         with tf.name_scope("Accuracy"):
-            correct = tf.cast(tf.equal(input_y, tf.round(preds)),
-                              tf.float32, name="correct_calculation")
+            correct = tf.equal(input_y, tf.round(preds, name="round_probabilities"))
+            all_labs_true = tf.reduce_min(tf.cast(correct, tf.float32, name="correct_calculation"), axis=-1)
 
-            # %age of all correct labels
-            label_accuracy = tf.reduce_mean(correct, name="label_accuracy")
-
-            # %age of images with all correct labels
-            inp_correct = tf.reduce_min(correct, axis=-1)
-            inp_accuracy = tf.reduce_mean(inp_correct, name="input_accuracy")
-
+            accuracy = tf.reduce_mean(all_labs_true, name="accuracy")
             # accuracy is in fraction (not %age)
-            tf.summary.scalar("input_accuracy_summary", inp_accuracy)
-            tf.summary.scalar("label_accuracy_summary", label_accuracy)
+
+            tf.summary.scalar("input_accuracy_summary", accuracy)
 
     print("===========================================================================================")
     print("Graph construction complete ...")
