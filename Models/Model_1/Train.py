@@ -4,6 +4,7 @@
 import tensorflow as tf
 import os
 import timeit  # for calculating the computational time
+import numpy as np
 
 # for running the script on command-line terminal
 import sys
@@ -13,7 +14,7 @@ sys.path.append("../")
 from common.GeneralConfiguration import generalConf
 from common.Pickler import unpickle_it
 from ResNet.GraphCreator import create_graph
-from common.DataPartitioner import *
+from common.DataPartitioner import synch_random_shuffle_non_np, split_train_dev
 from Model_1.ResNet.ModelConfiguration import modelConf
 
 flags = tf.app.flags
@@ -145,16 +146,12 @@ def train_network(network, optimizer, epochs, train_x, train_y, dev_x, dev_y,
 
             print("\nepoch = ", epoch + 1, "time taken = ", (stop_time - start_time))
 
-            # evaluate the accuracy of the whole dev dataset:
-            avg_accuracy = sum(accuracies) / len(accuracies)
-            avg_loss = sum(losses) / len(losses)
-            print("Average epoch accuracy = ", avg_accuracy)
+            avg_acc = np.mean(accuracies)
+            avg_loss = np.mean(losses)
             print("Average epoch loss = ", avg_loss)
-            scalar_sums.value.add(tag="%strain_accuracy" % "Accuracy/", simple_value=avg_accuracy)
-            scalar_sums.value.add(tag="%sloss" % "Loss/", simple_value=avg_loss)
-            # evaluate the accuracy for the dev set
+            print("Average epoch input accuracy = ", avg_acc)
 
-            # calculate the dev set accuracy
+            # evaluate the accuracy for the dev set
             dev_acc = sess.run(accuracy,
                                feed_dict={
                                    input_x: dev_x,
@@ -163,10 +160,13 @@ def train_network(network, optimizer, epochs, train_x, train_y, dev_x, dev_y,
                                    dropout_keep_prob: dropout_prob,
                                    batch_norm_mode: False
                                })
-            print("dev_input_accuracy = ", dev_acc)
-            scalar_sums.value.add(tag="%sdev_accuracy" % "Accuracy/", simple_value=dev_acc)
+
+            print("dev_accuracy = ", dev_acc)
 
             # write the summaries to the file_system
+            summaries.value.add(tag="%strain_accuracy" % "Accuracy/", simple_value=avg_acc)
+            summaries.value.add(tag="%sdev_accuracy" % "Accuracy/", simple_value=dev_acc)
+            summaries.value.add(tag="%sloss" % "Loss/", simple_value=avg_loss)
             tensorboard_writer.add_summary(summaries, epoch + 1)
             tensorboard_writer.add_summary(scalar_sums, epoch + 1)
 
@@ -233,13 +233,13 @@ def main(_):
 if __name__ == '__main__':
     # define the command-line arguments for the script
 
-    flags.DEFINE_integer("epochs", 12, help="The number of epochs for training the Network")
-    flags.DEFINE_integer("network_depth", 0, help="The Depth of the Network (No. of residual blocks)")
-    flags.DEFINE_integer("fc_layer_width", 512, help="The width of the final dense layers")
-    flags.DEFINE_integer("fc_layer_depth", 1, help="The number of dense layer in the end")
-    flags.DEFINE_float("learning_rate", 3e-4, help="Learning rate for training")
-    flags.DEFINE_float("dropout_prob", 0.5, help="Dropout probability for the final dense layers")
-    flags.DEFINE_integer("batch_size", 128, help="Batch size for sgd")
+    flags.DEFINE_integer("epochs", 12, "The number of epochs for training the Network")
+    flags.DEFINE_integer("network_depth", 0,"The Depth of the Network (No. of residual blocks)")
+    flags.DEFINE_integer("fc_layer_width", 512, "The width of the final dense layers")
+    flags.DEFINE_integer("fc_layer_depth", 1, "The number of dense layer in the end")
+    flags.DEFINE_float("learning_rate", 3e-4, "Learning rate for training")
+    flags.DEFINE_float("dropout_prob", 0.5, "Dropout probability for the final dense layers")
+    flags.DEFINE_integer("batch_size", 128, "Batch size for sgd")
 
     # call the main function
     tf.app.run(main)
