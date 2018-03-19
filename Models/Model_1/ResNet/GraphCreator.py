@@ -170,6 +170,7 @@ def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_dep
                 tf.summary.histogram(tensor_name + "/bias", tf.get_variable(tensor_name + "/bias"))
 
         # define the final classification fully connected layer
+        y = tf.layers.batch_normalization(y, training=batch_norm_mode, name="final_batch_normalization")
         raw_preds = tf.layers.dense(y, num_classes, name="Raw_Predictions")
 
         # define the sigmoid predictions
@@ -185,9 +186,6 @@ def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_dep
                 tf.nn.sigmoid_cross_entropy_with_logits(labels=input_y,
                                                         logits=raw_preds), name="loss")
 
-            # add scalar summary for the loss
-            tf.summary.scalar("loss", loss)
-
         # define the accuracy metric
         with tf.name_scope("Accuracy"):
             correct = tf.equal(input_y, tf.round(preds, name="round_probabilities"))
@@ -195,8 +193,6 @@ def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_dep
 
             accuracy = tf.reduce_mean(all_labs_true, name="accuracy")
             # accuracy is in fraction (not %age)
-
-            tf.summary.scalar("input_accuracy_summary", accuracy)
 
     print("===========================================================================================")
     print("Graph construction complete ...")

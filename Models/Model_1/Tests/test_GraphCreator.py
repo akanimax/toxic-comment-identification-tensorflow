@@ -17,13 +17,6 @@ class TestGraphCreator(unittest.TestCase):
         cls.seq_length, cls.num_classes = generalConf.MAX_WORD_LENGTH, generalConf.NUM_CLASSES
         cls.graph = create_graph(cls.seq_length, cls.num_classes, vocab_size, emb_size, 3)
 
-    def test_one_hot_encoding(self):
-        # test the one_hot encoded version
-        one_hot = self.graph.get_tensor_by_name("OneHot_Encoding/one_hot_encoded_labels:0")
-
-        # test if the one hot encoding shape is correct
-        self.assertEqual(one_hot.shape.as_list(), [None, self.num_classes])
-
     def test_embeddings(self):
         # test the one_hot encoded version
         embedded_inp = self.graph.get_tensor_by_name("Embedding/Embedded_input:0")
