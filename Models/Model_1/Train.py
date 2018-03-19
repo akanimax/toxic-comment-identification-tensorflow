@@ -228,13 +228,13 @@ def main(_):
 if __name__ == '__main__':
     # define the command-line arguments for the script
 
-    flags.DEFINE_integer("epochs", 12, help="The number of epochs for training the Network")
-    flags.DEFINE_integer("network_depth", 0, help="The Depth of the Network (No. of residual blocks)")
-    flags.DEFINE_integer("fc_layer_width", 512, help="The width of the final dense layers")
-    flags.DEFINE_integer("fc_layer_depth", 1, help="The number of dense layer in the end")
-    flags.DEFINE_float("learning_rate", 3e-4, help="Learning rate for training")
-    flags.DEFINE_float("dropout_prob", 0.5, help="Dropout probability for the final dense layers")
-    flags.DEFINE_integer("batch_size", 128, help="Batch size for sgd")
+    flags.DEFINE_integer("epochs", 12, "The number of epochs for training the Network")
+    flags.DEFINE_integer("network_depth", 0,"The Depth of the Network (No. of residual blocks)")
+    flags.DEFINE_integer("fc_layer_width", 512, "The width of the final dense layers")
+    flags.DEFINE_integer("fc_layer_depth", 1, "The number of dense layer in the end")
+    flags.DEFINE_float("learning_rate", 3e-4, "Learning rate for training")
+    flags.DEFINE_float("dropout_prob", 0.5, "Dropout probability for the final dense layers")
+    flags.DEFINE_integer("batch_size", 128, "Batch size for sgd")
 
     # call the main function
     tf.app.run(main)

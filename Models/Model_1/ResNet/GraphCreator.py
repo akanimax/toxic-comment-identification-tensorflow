@@ -170,6 +170,7 @@ def create_graph(sequence_length, num_classes, vocab_size, emb_size, network_dep
                 tf.summary.histogram(tensor_name + "/bias", tf.get_variable(tensor_name + "/bias"))
 
         # define the final classification fully connected layer
+        y = tf.layers.batch_nomralization(y, training=batch_norm_mode, name="Final_BN_Layer")
         raw_preds = tf.layers.dense(y, num_classes, name="Raw_Predictions")
 
         # define the sigmoid predictions
